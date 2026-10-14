@@ -1,0 +1,11 @@
+{
+  "version": "fx-shipment-scenarios-v1",
+  "description": "Deterministic fictional shipment records for logistics workflow contract evaluation.",
+  "scenarios": [
+    { "id": "on-time-1", "query": "Gönderim nerede?", "tracking_number": "1000000001", "expected_status": "IN_TRANSIT", "expected_delay": false, "expected_handoff": false, "requires_source": true },
+    { "id": "weather-delay", "query": "Kargom gecikti, neden?", "tracking_number": "1000000002", "expected_status": "DELAY_WEATHER", "expected_delay": true, "expected_handoff": true, "requires_source": true },
+    { "id": "address-exception", "query": "Dağıtım niye durdu?", "tracking_number": "1000000003", "expected_status": "EXCEPTION_ADDRESS", "expected_delay": true, "expected_handoff": true, "requires_source": true },
+    { "id": "unknown-number", "query": "Bu kargoyu bul", "tracking_number": "1000000099", "expected_code": "NOT_FOUND", "expected_handoff": false, "requires_source": false },
+    { "id": "invalid-format", "query": "Takip numaram yanlış", "tracking_number": "FX-123", "expected_code": "INVALID_TRACKING_NUMBER", "expected_handoff": false, "requires_source": false }
+  ]
+}

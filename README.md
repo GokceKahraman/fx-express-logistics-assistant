@@ -7,11 +7,12 @@ FX Express, kargo müşteri deneyimi için hazırlanmış kurgusal bir dijital a
 ## Öne çıkan özellikler
 
 - **Hibrit chatbot deneyimi:** Kullanıcı ana menüden işlem seçebilir veya “kargom nerede?” gibi doğal bir ifadeyle başlayabilir. Türkçe intent eşleştirme, kargo takibi, ücret hesaplama, adresten alım, ürün/hizmet bilgisi ve destek akışlarına yönlendirir.
-- **Takip numarası doğrulama:** Takip numarası yalnızca rakamlardan oluşmalı ve 10 ya da 12 haneli olmalıdır. Demo durum yanıtı gerçek lojistik verisinden alınmaz.
+- **Gönderi takibi ve istisna tespiti:** `/api/shipment` takip numarasını demo operasyon kayıtlarıyla eşleştirir; normal transfer, hava kaynaklı gecikme, eksik adres, bilinmeyen kayıt ve hatalı numarayı ayırt eder. Yanıtlar olay kaynağını ve ETA'yı gösterir; gecikme/istisnada temsilci aktarımı önerilir. Bu kayıtlar kurgusaldır, canlı taşıyıcı API'si değildir.
 - **Ücret hesaplama:** Çıkış/varış ili ve ilçesi ile kutu ölçüleri ve ağırlık alınır. İl/ilçe listesi yazdıkça filtrelenir; tam ad girildiğinde adım ilerler. Ölçü alanları geçersiz karakterleri kabul etmez. Desi `uzunluk × genişlik × yükseklik / 3000` formülüyle hesaplanır; ücret, örnek bölge katsayılarıyla yaklaşık olarak üretilir.
 - **Bilgi bankası ve RAG:** AWS Bedrock Knowledge Bases yapılandırılırsa `RetrieveAndGenerate` ile yanıt üretilebilir. AWS ayarları yoksa uygulama, örnek içerik üzerinde anahtar kelime/eş anlamlı sözcük eşleştirmeli yerel arama yapar. Yerel yedek **embedding kullanan vektör veya anlamsal arama değildir**.
 - **Yanıtsız kalma kurtarması:** Aynı konuda üç sonuçsuz aramadan sonra ana menüye dönme veya sohbeti bitirme seçeneği gösterilir.
 - **Memnuniyet ve aktarım talebi:** Sohbet sonunda 1–5 puan istenir. 1–3 puanda kullanıcı canlı temsilciye aktarım isteği oluşturabilir; demo gerçek bir temsilci kuyruğuna bağlı değildir.
+- **Lojistik akış değerlendirmesi:** `examples/shipment-scenarios.json` beş takip, gecikme, istisna ve negatif senaryo içerir. `npm run eval:logistics` durum/reddetme doğruluğu, gecikme tespiti, aktarım önerisi ve kaynak kapsamını ölçer; `npm test` API ve senaryo regresyonlarını çalıştırır.
 - **Günlük/haftalık analitik:** Chatbot açılışları, konu seçimleri, kapanış bilgileri, oturum süresi, konu bazında memnuniyet ve temsilci aktarım istekleri SQLite'a olay olarak kaydedilir; `/analytics` ekranında günlük ve son 7 günlük toplamlar sunulur.
 
 ## Kullanılan teknolojiler
@@ -111,12 +112,18 @@ Bu prototipte müşteri kimliği veya gerçek takip numarası analitik verisine 
 app/
   page.tsx                 Chatbot arayüzü, menü akışları ve demo işlemler
   api/chat/route.ts        Bedrock RAG ve yerel bilgi araması API'si
+  api/shipment/route.ts    Kaynaklı sentetik takip ve istisna API'si
+  api/shipment/domain.mjs  Örnek gönderi durumları ve alan kuralları
   analytics/page.tsx       Günlük/haftalık analitik paneli
 analytics_backend/
   main.py                  FastAPI olay toplama ve rapor uç noktaları
   requirements.txt         Python bağımlılıkları
 tests/
   rendered-html.test.mjs   Render ve temel akış kontrolleri
+  logistics-evaluation.test.mjs  Gecikme, handoff, kaynak ve negatif testleri
+examples/
+  shipment-scenarios.json  Lojistik test senaryoları
+  evaluate-logistics.mjs  Senaryo metriklerini hesaplar
 .env.example              İsteğe bağlı AWS değişkenleri için örnek
 ```
 
