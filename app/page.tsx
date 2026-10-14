@@ -230,6 +230,34 @@ export default function Home() {
     }
   };
 
+  const answerShipmentStatus = async (trackingNumber: string) => {
+    setOfferAgentTransfer(false);
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/shipment?trackingNumber=${encodeURIComponent(trackingNumber)}`, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) {
+        add("assistant", data.error ?? "Gönderi kaydına ulaşılamadı. Takip numarasını kontrol edin.");
+        setStep("tracking");
+        return;
+      }
+      const etaText = data.eta ? ` Tahmini teslimat: ${data.eta}.` : " Teslimat zamanı adres teyidinden sonra güncellenecek.";
+      const exceptionText = data.exception ? ` İstisna: ${data.exception}` : "";
+      add("assistant", `${data.status}. ${data.latestEvent}${etaText}${exceptionText}`, data.sources);
+      if (data.handoffRecommended) {
+        setOfferAgentTransfer(true);
+        track("shipment_exception_detected", activeTopic.current, data.statusCode, "tracking", data.statusCode);
+        add("assistant", "Bu istisnanın çözümü için isterseniz canlı temsilciye aktarım isteği oluşturabilirsiniz.");
+      }
+      setStep("complete");
+    } catch {
+      add("assistant", "Demo gönderi kayıtlarına şu anda erişemiyorum. Biraz sonra tekrar deneyin.");
+      setStep("tracking");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const routeNaturalMessage = async (text: string) => {
     const intent = detectIntent(text);
     activeTopic.current = INTENT_LABEL[intent];
@@ -241,10 +269,7 @@ export default function Home() {
       if (trackingNumber) {
         failedAttempts.current[activeTopic.current] = 0;
         setShowRecoveryActions(false);
-        const states = ["Gönderiniz çıkış transfer merkezinde.", "Gönderiniz varış şubesine ulaştı.", "Gönderiniz dağıtıma çıktı."];
-        const last = Number(trackingNumber.at(-1));
-        add("assistant", `${states[last % states.length]} Tahmini teslimat: ${last % 2 ? "yarın" : "bugün 18.00'e kadar"}.`);
-        setStep("complete");
+        await answerShipmentStatus(trackingNumber);
       } else {
         add("assistant", "Takip numarası yalnızca rakamlardan oluşmalı ve 10 ya da 12 hane olmalıdır. Lütfen numaranızı kontrol edip yeniden yazın.");
         setStep("tracking");
@@ -342,8 +367,7 @@ export default function Home() {
       add("user", value);
       failedAttempts.current[activeTopic.current] = 0;
       setShowRecoveryActions(false);
-      const last = Number(value.at(-1)); const states = ["Gönderiniz çıkış transfer merkezinde.", "Gönderiniz varış şubesine ulaştı.", "Gönderiniz dağıtıma çıktı."];
-      add("assistant", `${states[last % states.length]} Tahmini teslimat: ${last % 2 ? "yarın" : "bugün 18.00'e kadar"}.`); setStep("complete"); return;
+      await answerShipmentStatus(value); return;
     }
     if (step === "supportText") { add("user", value); add("assistant", `${supportType} bildiriminiz demo ortamında alındı. Örnek kayıt numarası: PKD-${demoTicketNumber()}. Canlı ortamda kayıt, müşteri ve operasyon sistemlerine entegre edilmelidir.`); setStep("complete"); return; }
 
@@ -382,6 +406,7 @@ export default function Home() {
           <label>Ağırlık <span><input inputMode="decimal" value={dimensions.weight} onChange={(e) => updateDimension("weight", e.target.value)} placeholder="2.5"/> kg</span></label>
         </div><p>Desi = Uzunluk × Genişlik × Yükseklik / 3000</p><button type="submit">Yaklaşık fiyatı hesapla <span>→</span></button></form>}
         {step === "complete" && !sessionClosed && <div className="completionActions">{showRecoveryActions ? <><button onClick={backMenu}>Ana menüye dön</button><button onClick={closeSession}>Görüşmeyi bitir</button></> : <><button onClick={backMenu}>Ana menüye dön</button><button onClick={() => { setStep("faq"); add("assistant", "Başka bir sorunuz varsa yazabilirsiniz."); }}>Başka bir soru sor</button><button onClick={closeSession}>Görüşmeyi bitir</button></>}</div>}
+        {offerAgentTransfer && !sessionClosed && !handoffRequested && <div className="completionActions"><button onClick={requestAgentTransfer}>Canlı temsilciye aktarım iste</button></div>}
         {sessionClosed && <div className="feedbackCard"><b>Görüşme deneyiminiz nasıldı?</b>{ratingSubmitted ? <span>Teşekkürler, değerlendirmeniz kaydedildi.</span> : <div>{[1, 2, 3, 4, 5].map((score) => <button key={score} onClick={() => submitRating(score)} aria-label={`${score} puan`}>{score}</button>)}</div>}{offerAgentTransfer && !handoffRequested && <button type="button" onClick={requestAgentTransfer} style={{ alignSelf:"flex-start", padding:"8px 10px", border:0, borderRadius:7, background:"#2866e8", color:"#fff", fontSize:8, fontWeight:700, cursor:"pointer" }}>Canlı temsilciye aktarım iste</button>}{handoffRequested && <span>Demo aktarım isteği kaydedildi; canlı kuyruk bağlı değildir.</span>}<button className="newSessionButton" onClick={newSession}>Yeni sohbet başlat</button></div>}
         {!(["menu", "complete", "faq", "tracking", "supportText", "parcel"] as Step[]).includes(step) && <button className="backButton" onClick={backMenu}>← Ana menü</button>}<div ref={endRef}/>
         {showRecoveryActions && step !== "complete" && !sessionClosed && <div className="completionActions"><button onClick={closeSession}>Görüşmeyi bitir</button></div>}

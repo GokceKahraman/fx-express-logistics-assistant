@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-async function render() {
+async function render(path = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
-  return worker.fetch(new Request("http://localhost/", { headers: { accept: "text/html" } }), {
+  return worker.fetch(new Request(`http://localhost${path}`, { headers: { accept: "text/html" } }), {
     ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
   }, { waitUntil() {}, passThroughOnException() {} });
 }
@@ -33,4 +33,19 @@ test("includes the complete AI cargo journey", async () => {
   assert.match(page, /destinationDistrict/);
   assert.match(page, /api\/chat/);
   assert.match(page, /TRACKING_NUMBER_REGEX/);
+});
+
+test("shipment API returns cited demo delay and rejects unknown numbers", async () => {
+  const delayed = await render("/api/shipment?trackingNumber=1000000002");
+  assert.equal(delayed.status, 200);
+  const record = await delayed.json();
+  assert.equal(record.statusCode, "DELAY_WEATHER");
+  assert.equal(record.handoffRecommended, true);
+  assert.ok(record.sources.length > 0);
+
+  const missing = await render("/api/shipment?trackingNumber=1000000099");
+  assert.equal(missing.status, 404);
+
+  const malformed = await render("/api/shipment?trackingNumber=FX-123");
+  assert.equal(malformed.status, 400);
 });
